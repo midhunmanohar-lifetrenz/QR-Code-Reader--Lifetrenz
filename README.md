@@ -1,6 +1,6 @@
 # Lifetrenz QR Reader (Android)
 
-**Download:** [Lifetrenz-QR-Reader-0.3.1.apk](releases/Lifetrenz-QR-Reader-0.3.1.apk) (9.2 MB, Android 12+)
+**Download:** [Lifetrenz-QR-Reader-0.4.0.apk](releases/Lifetrenz-QR-Reader-0.4.0.apk) (9.2 MB, Android 12+)
 
 Scans barcodes with the phone camera and types the value into the laptop as a Bluetooth keyboard. Nothing to install on the laptop.
 
@@ -31,7 +31,7 @@ Do not share them or commit them. Both are excluded by `.gitignore`.
 - `hid/HidKeyboard.kt` registers the phone as a keyboard and types text
 - `hid/KeyMap.kt` US key table (letters, digits, symbols)
 - `MainViewModel.kt` scan handling, duplicate guard, queue, feedback
-- `ui/` Scan, Connect, History and Settings screens, camera preview
+- `ui/` Scan, Connect, History and Settings screens, shared components, camera preview
 - `data/` settings and history storage
 
 ## Bluetooth baseline
@@ -47,6 +47,8 @@ Do not share them or commit them. Both are excluded by `.gitignore`.
 
 ## Versions
 
+- 0.4.0 new design (Option D): camera across the top, large last value with status labels, floating navigation bar,
+  new Connect and History layouts, new "Bolt" app icon with Android 13 themed icon. No change to scanning or Bluetooth.
 - 0.3.1 smaller APK: code shrinking (R8) on, 49 MB down to 9.2 MB. No behaviour change.
 - 0.3.0 review fixes: centre-most barcode and per-value repeat guard, no double sends, partial-send warning,
   visibility permission, background pause handling, connect timeout, history auto-clear and clear confirmation,

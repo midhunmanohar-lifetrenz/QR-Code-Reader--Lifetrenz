@@ -29,10 +29,10 @@ fun SettingsScreen(vm: MainViewModel) {
     val s by vm.settings.flow.collectAsStateWithLifecycle()
 
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+        ScreenTitle("Settings")
 
         Section("Typing on the laptop")
         Text("After the value press", fontSize = 14.sp)
@@ -100,7 +100,6 @@ fun SettingsScreen(vm: MainViewModel) {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text("", modifier = Modifier.padding(8.dp))
     }
 }
 

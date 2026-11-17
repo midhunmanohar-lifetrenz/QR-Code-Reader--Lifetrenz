@@ -1,11 +1,16 @@
+<!-- App icon 8 "Bolt": blue scan frame, light-blue scan line, lightning bolt on a white tile. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- three finder squares -->
-    <path android:fillColor="#FFFFFF" android:pathData="M30,30h20v20h-20z M34,34v12h12v-12z" android:fillType="evenOdd"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M58,30h20v20h-20z M62,34v12h12v-12z" android:fillType="evenOdd"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M30,58h20v20h-20z M34,62v12h12v-12z" android:fillType="evenOdd"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M38,38h4v4h-4z M66,38h4v4h-4z M38,66h4v4h-4z"/>
-    <!-- data modules -->
-    <path android:fillColor="#FFFFFF" android:pathData="M58,58h6v6h-6z M70,58h8v6h-8z M58,70h8v8h-8z M72,70h6v8h-6z"/>
+    <path
+        android:pathData="M28,44V34a6,6 0,0 1,6 -6h10M64,28h10a6,6 0,0 1,6 6v10M80,64v10a6,6 0,0 1,-6 6H64M44,80H34a6,6 0,0 1,-6 -6V64"
+        android:strokeColor="#0B57D0"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#7FCFFF"
+        android:pathData="M32,52h44a2,2 0,0 1,0 4h-44a2,2 0,0 1,0 -4z" />
+    <path
+        android:fillColor="#0B57D0"
+        android:pathData="M59,30L42,57h12l-5,21l18,-29H55z" />
 </vector>

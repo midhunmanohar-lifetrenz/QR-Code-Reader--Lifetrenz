@@ -6,18 +6,32 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,9 +42,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,6 +64,8 @@ fun ConnectScreen(vm: MainViewModel) {
     val paired = if (showAll) allPaired else computers
     val hidden = allPaired.size - computers.size
     var visibleProblem by remember { mutableStateOf<String?>(null) }
+    var showPairing by rememberSaveable { mutableStateOf(false) }
+    var showLog by rememberSaveable { mutableStateOf(false) }
 
     val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         visibleProblem = if (result.resultCode > 0) null
@@ -66,67 +84,108 @@ fun ConnectScreen(vm: MainViewModel) {
         else visibleProblem = "Nearby devices permission is needed to make the phone visible."
     }
 
+    val colors = MaterialTheme.colorScheme
+    val connected = hid.connected
+
     LazyColumn(
-        Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { Text("Connect", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+        item { ScreenTitle("Connect") }
 
         item {
-            Card(colors = appCardColors()) {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusRow("Bluetooth", if (hid.bluetoothOn) "On" else "Off", hid.bluetoothOn)
-                    StatusRow("Keyboard mode", if (hid.registered) "Ready" else "Not ready", hid.registered)
-                    StatusRow("Laptop", hid.connected?.let { deviceLabel(it) } ?: "Not connected", hid.connected != null)
-                    hid.problem?.let { Text(it, color = BadRed, fontSize = 13.sp) }
-                    hid.hint?.let { Text(it, color = WarnAmber, fontSize = 13.sp) }
-                    if (!hid.bluetoothOn) {
-                        Button(onClick = {
-                            context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        }) { Text("Turn on Bluetooth") }
+            if (connected != null) {
+                Surface(shape = RoundedCornerShape(28.dp), color = colors.primaryContainer, contentColor = colors.onPrimaryContainer) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.primary), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = colors.onPrimary)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(deviceLabel(connected), fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("Connected · keyboard ready", fontSize = 13.sp)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = vm::sendTest, modifier = Modifier.weight(1f).height(48.dp)) { Text("Send test text") }
+                            OutlinedButton(onClick = { vm.hid.disconnect() }, modifier = Modifier.height(48.dp)) { Text("Disconnect") }
+                        }
+                        Text(
+                            notice ?: "Click a text field on the laptop first. The test text 143555-ABC_xyz/#@: should appear there.",
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            } else {
+                Surface(shape = RoundedCornerShape(28.dp), color = colors.surfaceContainer) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = colors.onSurfaceVariant)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text("No laptop connected", fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                Text(
+                                    when {
+                                        !hid.bluetoothOn -> "Bluetooth is off."
+                                        !hid.registered -> "Keyboard mode is starting."
+                                        else -> "Keyboard ready. Connect a laptop below."
+                                    },
+                                    fontSize = 13.sp,
+                                    color = colors.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        hid.problem?.let { Text(it, color = BadRed, fontSize = 13.sp) }
+                        hid.hint?.let { Text(it, color = WarnAmber, fontSize = 13.sp) }
+                        if (!hid.bluetoothOn) {
+                            Button(
+                                onClick = {
+                                    context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                },
+                                modifier = Modifier.height(48.dp),
+                            ) { Text("Turn on Bluetooth") }
+                        }
                     }
                 }
             }
         }
 
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = vm::sendTest,
-                    enabled = hid.connected != null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Send test text") }
-                notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp) }
-                Text(
-                    "Click a text field on the laptop first. The test text 143555-ABC_xyz/#@: should appear there.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        item { Text("Paired devices", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+        item { SectionLabel("Paired laptops", Modifier.padding(top = 6.dp)) }
 
         if (paired.isEmpty()) {
-            item { Text("No paired laptops yet. Follow the steps below.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-        items(paired, key = { it.address }) { d ->
-            val isConnected = hid.connected?.address == d.address
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text(deviceLabel(d), fontWeight = FontWeight.Medium)
-                    Text(if (isConnected) "Connected" else "Not connected", fontSize = 12.sp, color = if (isConnected) OkGreen else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (isConnected) {
-                    TextButton(onClick = { vm.hid.disconnect() }) { Text("Disconnect") }
-                } else {
-                    val busy = hid.connectingTo == d.address
-                    OutlinedButton(onClick = { vm.hid.connect(d) }, enabled = hid.registered && !busy) {
-                        Text(if (busy) "Connecting…" else "Connect")
+            item {
+                Text("No paired laptops yet. Tap \"Pair a new laptop\" below.", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            }
+        } else {
+            item {
+                Column(Modifier.clip(RoundedCornerShape(24.dp)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    paired.forEach { d ->
+                        val isConnected = connected?.address == d.address
+                        val busy = hid.connectingTo == d.address
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(colors.surfaceContainerLowest)
+                                .heightIn(min = 64.dp)
+                                .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(if (isConnected) OkGreen else colors.outlineVariant))
+                            Text(deviceLabel(d), fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (isConnected) {
+                                Text("Connected", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = OkGreen, modifier = Modifier.padding(end = 8.dp))
+                            } else {
+                                FilledTonalButton(onClick = { vm.hid.connect(d) }, enabled = hid.registered && !busy) {
+                                    Text(if (busy) "Connecting…" else "Connect")
+                                }
+                            }
+                        }
                     }
                 }
             }
-            HorizontalDivider()
         }
 
         if (hidden > 0 || showAll) {
@@ -138,47 +197,65 @@ fun ConnectScreen(vm: MainViewModel) {
         }
 
         item {
-            Card(colors = appCardColors()) {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Pair a new laptop (Windows 11)", fontWeight = FontWeight.SemiBold)
-                    Text("1. Tap \"Make phone visible\" below.", fontSize = 13.sp)
-                    Text("2. On the laptop open Settings › Bluetooth & devices › Add device › Bluetooth.", fontSize = 13.sp)
-                    Text("3. Choose \"Lifetrenz QR Reader\" and confirm the code on both screens.", fontSize = 13.sp)
-                    Text("4. Click a text field on the laptop, then tap \"Send test text\".", fontSize = 13.sp)
-                    Text("Tip: if the Connect button does not work, click Connect next to this phone in the laptop's Bluetooth list. The app detects it automatically.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(
-                        onClick = {
-                            visibleProblem = null
-                            advertisePermission.launch(Manifest.permission.BLUETOOTH_ADVERTISE)
-                        },
-                        enabled = hid.bluetoothOn,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Make phone visible (2 minutes)") }
-                    visibleProblem?.let { Text(it, color = WarnAmber, fontSize = 13.sp) }
-                    OutlinedButton(
-                        onClick = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open Bluetooth settings") }
-                }
+            FilledTonalButton(
+                onClick = { showPairing = !showPairing },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (showPairing) "Hide pairing steps" else "Pair a new laptop", fontSize = 15.sp)
             }
         }
-        item { Text("Connection log", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (hid.log.isEmpty()) Text("No events yet.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                hid.log.take(12).forEach {
-                    Text(it, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        item { Text("", modifier = Modifier.padding(8.dp)) }
-    }
-}
 
-@Composable
-private fun StatusRow(label: String, value: String, good: Boolean) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, color = if (good) OkGreen else WarnAmber, fontWeight = FontWeight.Medium)
+        if (showPairing || paired.isEmpty()) {
+            item {
+                Surface(shape = RoundedCornerShape(24.dp), color = colors.surfaceContainerLowest) {
+                    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Pair a new laptop (Windows 11)", fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                        Text("1. Tap \"Make phone visible\" below.", fontSize = 14.sp)
+                        Text("2. On the laptop open Settings › Bluetooth & devices › Add device › Bluetooth.", fontSize = 14.sp)
+                        Text("3. Choose \"Lifetrenz QR Reader\" and confirm the code on both screens.", fontSize = 14.sp)
+                        Text("4. Click a text field on the laptop, then tap \"Send test text\".", fontSize = 14.sp)
+                        Button(
+                            onClick = {
+                                visibleProblem = null
+                                advertisePermission.launch(Manifest.permission.BLUETOOTH_ADVERTISE)
+                            },
+                            enabled = hid.bluetoothOn,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        ) { Text("Make phone visible (2 minutes)") }
+                        visibleProblem?.let { Text(it, color = WarnAmber, fontSize = 13.sp) }
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        ) { Text("Open Bluetooth settings") }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "If Connect does not work, click Connect next to this phone in the laptop's Bluetooth list. The app picks it up by itself.",
+                fontSize = 13.sp,
+                color = colors.onSurfaceVariant,
+            )
+        }
+
+        item {
+            TextButton(onClick = { showLog = !showLog }) {
+                Text(if (showLog) "Hide connection log" else "Show connection log")
+            }
+        }
+        if (showLog) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (hid.log.isEmpty()) Text("No events yet.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    hid.log.take(12).forEach {
+                        Text(it, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colors.onSurfaceVariant)
+                    }
+                }
+            }
+        }
     }
 }
