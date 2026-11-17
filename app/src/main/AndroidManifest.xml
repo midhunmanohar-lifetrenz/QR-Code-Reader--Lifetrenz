@@ -7,6 +7,8 @@
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Needed to make the phone visible for pairing. Same "Nearby devices" prompt as BLUETOOTH_CONNECT. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- The app works fully offline; drop network permissions pulled in by libraries. -->

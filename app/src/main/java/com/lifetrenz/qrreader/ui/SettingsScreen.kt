@@ -62,9 +62,24 @@ fun SettingsScreen(vm: MainViewModel) {
         SwitchRow("Vibrate on scan", s.vibrate) { v -> vm.settings.update { it.copy(vibrate = v) } }
         SwitchRow("Keep screen on while scanning", s.keepAwake) { v -> vm.settings.update { it.copy(keepAwake = v) } }
 
+        Section("History")
+        Text("Delete scans older than", fontSize = 14.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(1 to "1 day", 7 to "7 days", 30 to "30 days", 0 to "Never").forEach { (days, label) ->
+                FilterChip(
+                    selected = s.autoClearDays == days,
+                    onClick = {
+                        vm.settings.update { it.copy(autoClearDays = days) }
+                        vm.history.prune(days)
+                    },
+                    label = { Text(label) },
+                )
+            }
+        }
+
         Section("Keep the app running")
         Text(
-            "On iQOO and vivo phones set Battery to \"No restrictions\" for this app, so Bluetooth stays connected.",
+            "Keep this app open on screen while scanning. Android pauses the Bluetooth keyboard when the app is in the background. On iQOO and vivo phones also set Battery to \"No restrictions\" for this app.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

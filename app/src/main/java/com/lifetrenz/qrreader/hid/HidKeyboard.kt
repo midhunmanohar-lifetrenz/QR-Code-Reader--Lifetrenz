@@ -38,7 +38,8 @@ data class HidState(
     val log: List<String> = emptyList(),
 )
 
-data class TypeResult(val ok: Boolean, val skipped: Int = 0)
+/** [partial] is true when the link dropped after some keys were already typed on the laptop. */
+data class TypeResult(val ok: Boolean, val skipped: Int = 0, val partial: Boolean = false)
 
 /**
  * Makes the phone act as a Bluetooth keyboard (HID device profile) and types text to the paired laptop.
@@ -55,6 +56,15 @@ class HidKeyboard(private val context: Context) {
     private val typeLock = Mutex()
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var hid: BluetoothHidDevice? = null
+
+    /** False until the first successful registration; later drops are the system pausing us in the background. */
+    @Volatile private var everRegistered = false
+    @Volatile private var connectTimeout: Runnable? = null
+
+    private fun cancelConnectTimeout() {
+        connectTimeout?.let(main::removeCallbacks)
+        connectTimeout = null
+    }
 
     private val _state = MutableStateFlow(HidState())
     val state: StateFlow<HidState> = _state.asStateFlow()
@@ -84,14 +94,24 @@ class HidKeyboard(private val context: Context) {
 
     private val callback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
-            log(if (registered) "Keyboard registered" else "Keyboard not registered")
-            _state.update {
-                it.copy(
-                    registered = registered,
-                    problem = if (registered) null else "Keyboard mode could not start on this phone.",
-                )
+            if (!registered) {
+                // Android unregisters the keyboard whenever the app leaves the foreground; start() re-registers on return.
+                cancelConnectTimeout()
+                val paused = everRegistered
+                log(if (paused) "Keyboard paused (app left the screen)" else "Keyboard not registered")
+                _state.update {
+                    it.copy(
+                        registered = false,
+                        connected = null,
+                        connectingTo = null,
+                        problem = if (paused) null else "Keyboard mode could not start on this phone.",
+                    )
+                }
+                return
             }
-            if (!registered) return
+            everRegistered = true
+            log("Keyboard registered")
+            _state.update { it.copy(registered = true, problem = null) }
             val already = hid?.getDevicesMatchingConnectionStates(intArrayOf(BluetoothProfile.STATE_CONNECTED))
                 ?.firstOrNull()
             if (already != null) {
@@ -115,12 +135,14 @@ class HidKeyboard(private val context: Context) {
                     _state.update { it.copy(connectingTo = device.address) }
 
                 BluetoothProfile.STATE_CONNECTED -> {
+                    cancelConnectTimeout()
                     prefs.edit().putString(LAST_HOST, device.address).apply()
                     _state.update { it.copy(connected = device, connectingTo = null, hint = null) }
                 }
 
                 BluetoothProfile.STATE_DISCONNECTED -> _state.update { s ->
                     val failedAttempt = s.connectingTo == device.address
+                    if (failedAttempt) cancelConnectTimeout()
                     s.copy(
                         connected = if (s.connected?.address == device.address) null else s.connected,
                         connectingTo = null,
@@ -168,6 +190,7 @@ class HidKeyboard(private val context: Context) {
     }
 
     fun stop() {
+        cancelConnectTimeout()
         runCatching { hid?.unregisterApp() }
         hid?.let { runCatching { adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, it) } }
         hid = null
@@ -189,6 +212,9 @@ class HidKeyboard(private val context: Context) {
         }
     }
 
+    fun isComputer(device: BluetoothDevice): Boolean =
+        device.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.COMPUTER
+
     /** Paired devices, laptops and computers first. */
     fun pairedDevices(): List<BluetoothDevice> =
         adapter?.bondedDevices.orEmpty().sortedBy {
@@ -209,6 +235,7 @@ class HidKeyboard(private val context: Context) {
      */
     fun connect(device: BluetoothDevice) {
         val h = hid ?: return
+        cancelConnectTimeout()
         _state.update { it.copy(connectingTo = device.address, hint = null) }
         val started = h.connect(device)
         log("Connect to ${nameOf(device)}: ${if (started) "request sent" else "refused by phone"}")
@@ -216,14 +243,15 @@ class HidKeyboard(private val context: Context) {
             _state.update { it.copy(connectingTo = null, hint = CONNECT_HINT) }
             return
         }
-        main.postDelayed({
-            _state.update { s ->
-                if (s.connected?.address != device.address && s.connectingTo == device.address) {
-                    log("No answer from ${nameOf(device)} after ${CONNECT_TIMEOUT_MS / 1000} s")
-                    s.copy(connectingTo = null, hint = CONNECT_HINT)
-                } else s
+        val timeout = Runnable {
+            val s = _state.value
+            if (s.connected?.address != device.address && s.connectingTo == device.address) {
+                log("No answer from ${nameOf(device)} after ${CONNECT_TIMEOUT_MS / 1000} s")
+                _state.update { it.copy(connectingTo = null, hint = CONNECT_HINT) }
             }
-        }, CONNECT_TIMEOUT_MS)
+        }
+        connectTimeout = timeout
+        main.postDelayed(timeout, CONNECT_TIMEOUT_MS)
     }
 
     fun disconnect() {
@@ -236,6 +264,7 @@ class HidKeyboard(private val context: Context) {
         val h = hid ?: return TypeResult(false)
         val device = _state.value.connected ?: return TypeResult(false)
         var skipped = 0
+        var typed = 0
         typeLock.withLock {
             for (ch in text) {
                 val key = KeyMap.forChar(ch)
@@ -246,11 +275,12 @@ class HidKeyboard(private val context: Context) {
                 var mod = key.modifier
                 // Caps Lock on the laptop inverts letter case, so flip Shift to compensate.
                 if (key.isLetter && _state.value.capsLock) mod = mod xor KeyMap.SHIFT
-                if (!press(h, device, mod, key.usage)) return TypeResult(false, skipped)
+                if (!press(h, device, mod, key.usage)) return TypeResult(false, skipped, partial = typed > 0)
+                typed++
             }
             when (suffix) {
-                Suffix.ENTER -> if (!press(h, device, 0, KeyMap.ENTER)) return TypeResult(false, skipped)
-                Suffix.TAB -> if (!press(h, device, 0, KeyMap.TAB)) return TypeResult(false, skipped)
+                Suffix.ENTER -> if (!press(h, device, 0, KeyMap.ENTER)) return TypeResult(false, skipped, partial = typed > 0)
+                Suffix.TAB -> if (!press(h, device, 0, KeyMap.TAB)) return TypeResult(false, skipped, partial = typed > 0)
                 Suffix.NONE -> Unit
             }
         }

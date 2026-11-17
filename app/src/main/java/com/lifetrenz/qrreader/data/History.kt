@@ -64,6 +64,15 @@ class HistoryStore(context: Context) {
     @Synchronized
     fun clear() = save(emptyList())
 
+    /** Drops entries older than [days] days. 0 keeps everything. */
+    @Synchronized
+    fun prune(days: Int) {
+        if (days <= 0) return
+        val cutoff = System.currentTimeMillis() - days * 86_400_000L
+        val kept = _flow.value.filter { it.time >= cutoff }
+        if (kept.size != _flow.value.size) save(kept)
+    }
+
     companion object {
         private const val MAX = 500
     }

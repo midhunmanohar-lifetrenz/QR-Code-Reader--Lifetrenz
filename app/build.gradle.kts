@@ -19,8 +19,8 @@ android {
         applicationId = "com.lifetrenz.qrreader"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -38,11 +38,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = if (keystoreProps.isNotEmpty()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // No debug-key fallback: an APK signed with another key cannot update installed phones.
+            if (keystoreProps.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -54,6 +51,14 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    doFirst {
+        check(keystoreProps.isNotEmpty()) {
+            "keystore.properties is missing. Restore it and keystore/qrreader-release.jks from your backup before building a release."
+        }
     }
 }
 

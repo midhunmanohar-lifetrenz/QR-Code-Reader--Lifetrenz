@@ -1,8 +1,11 @@
 package com.lifetrenz.qrreader.ui
 
+import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,7 +42,29 @@ fun ConnectScreen(vm: MainViewModel) {
     val hid by vm.hid.state.collectAsStateWithLifecycle()
     val notice by vm.notice.collectAsStateWithLifecycle()
     // Re-read the paired list whenever the connection state changes.
-    val paired = androidx.compose.runtime.remember(hid.connected, hid.registered, hid.bluetoothOn) { vm.hid.pairedDevices() }
+    val allPaired = remember(hid.connected, hid.registered, hid.bluetoothOn) { vm.hid.pairedDevices() }
+    var showAll by rememberSaveable { mutableStateOf(false) }
+    val computers = allPaired.filter { vm.hid.isComputer(it) || it.address == hid.connected?.address }
+    val paired = if (showAll) allPaired else computers
+    val hidden = allPaired.size - computers.size
+    var visibleProblem by remember { mutableStateOf<String?>(null) }
+
+    val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        visibleProblem = if (result.resultCode > 0) null
+        else "The phone was not made visible. Use \"Open Bluetooth settings\" instead: the phone is visible while that screen is open."
+    }
+    fun requestDiscoverable() {
+        runCatching {
+            discoverable.launch(
+                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120),
+            )
+        }.onFailure { visibleProblem = "This phone would not open the visibility prompt. Use \"Open Bluetooth settings\" instead." }
+    }
+    val advertisePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) requestDiscoverable()
+        else visibleProblem = "Nearby devices permission is needed to make the phone visible."
+    }
 
     LazyColumn(
         Modifier.padding(horizontal = 16.dp),
@@ -79,7 +108,7 @@ fun ConnectScreen(vm: MainViewModel) {
         item { Text("Paired devices", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
 
         if (paired.isEmpty()) {
-            item { Text("No paired devices yet. Follow the steps below.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text("No paired laptops yet. Follow the steps below.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(paired, key = { it.address }) { d ->
             val isConnected = hid.connected?.address == d.address
@@ -100,6 +129,14 @@ fun ConnectScreen(vm: MainViewModel) {
             HorizontalDivider()
         }
 
+        if (hidden > 0 || showAll) {
+            item {
+                TextButton(onClick = { showAll = !showAll }) {
+                    Text(if (showAll) "Show laptops only" else "Show $hidden other paired device(s)")
+                }
+            }
+        }
+
         item {
             Card(colors = appCardColors()) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -111,15 +148,13 @@ fun ConnectScreen(vm: MainViewModel) {
                     Text("Tip: if the Connect button does not work, click Connect next to this phone in the laptop's Bluetooth list. The app detects it automatically.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
                         onClick = {
-                            context.startActivity(
-                                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-                                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
+                            visibleProblem = null
+                            advertisePermission.launch(Manifest.permission.BLUETOOTH_ADVERTISE)
                         },
-                        enabled = hid.registered,
+                        enabled = hid.bluetoothOn,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Make phone visible (2 minutes)") }
+                    visibleProblem?.let { Text(it, color = WarnAmber, fontSize = 13.sp) }
                     OutlinedButton(
                         onClick = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                         modifier = Modifier.fillMaxWidth(),

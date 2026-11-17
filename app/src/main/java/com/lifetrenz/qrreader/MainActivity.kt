@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.lifetrenz.qrreader.ui.ConnectScreen
 import com.lifetrenz.qrreader.ui.HistoryScreen
 import com.lifetrenz.qrreader.ui.QRReaderTheme
@@ -78,6 +79,12 @@ private fun Root(vm: MainViewModel) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         granted = allGranted()
         if (granted) vm.hid.start()
+    }
+
+    // Picks up permissions granted in system settings while the app was away.
+    LifecycleResumeEffect(Unit) {
+        granted = allGranted()
+        onPauseOrDispose { }
     }
 
     if (granted) {

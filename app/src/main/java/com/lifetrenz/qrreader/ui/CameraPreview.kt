@@ -87,12 +87,23 @@ fun CameraPreview(
                     proxy.close()
                     return@setAnalyzer
                 }
-                val input = InputImage.fromMediaImage(media, proxy.imageInfo.rotationDegrees)
+                val rotation = proxy.imageInfo.rotationDegrees
+                val input = InputImage.fromMediaImage(media, rotation)
+                // Bounding boxes are reported in the upright image, so swap the sides for a sideways sensor.
+                val sideways = rotation == 90 || rotation == 270
+                val cx = (if (sideways) proxy.height else proxy.width) / 2f
+                val cy = (if (sideways) proxy.width else proxy.height) / 2f
                 scanner.process(input)
                     .addOnSuccessListener { codes ->
-                        codes.firstOrNull { !it.rawValue.isNullOrEmpty() }?.let {
-                            callback(it.rawValue!!, formatName(it.format))
-                        }
+                        // With several codes in view, take the one nearest the centre of the picture.
+                        codes.filter { !it.rawValue.isNullOrEmpty() }
+                            .minByOrNull { code ->
+                                val box = code.boundingBox ?: return@minByOrNull Float.MAX_VALUE
+                                val dx = box.exactCenterX() - cx
+                                val dy = box.exactCenterY() - cy
+                                dx * dx + dy * dy
+                            }
+                            ?.let { callback(it.rawValue!!, formatName(it.format)) }
                     }
                     .addOnCompleteListener { proxy.close() }
             }

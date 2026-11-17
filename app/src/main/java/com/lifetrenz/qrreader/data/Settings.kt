@@ -16,6 +16,8 @@ data class Settings(
     val vibrate: Boolean = true,
     val keepAwake: Boolean = true,
     val continuous: Boolean = true,
+    /** Delete history entries older than this many days. 0 keeps everything. */
+    val autoClearDays: Int = 7,
 )
 
 class SettingsStore(context: Context) {
@@ -34,6 +36,7 @@ class SettingsStore(context: Context) {
             vibrate = prefs.getBoolean("vibrate", d.vibrate),
             keepAwake = prefs.getBoolean("keepAwake", d.keepAwake),
             continuous = prefs.getBoolean("continuous", d.continuous),
+            autoClearDays = prefs.getInt("autoClearDays", d.autoClearDays),
         )
     }
 
@@ -49,6 +52,7 @@ class SettingsStore(context: Context) {
             .putBoolean("vibrate", s.vibrate)
             .putBoolean("keepAwake", s.keepAwake)
             .putBoolean("continuous", s.continuous)
+            .putInt("autoClearDays", s.autoClearDays)
             .apply()
     }
 }

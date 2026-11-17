@@ -116,7 +116,7 @@ fun ScanScreen(vm: MainViewModel) {
                 Icon(if (torch) Icons.Filled.FlashOn else Icons.Filled.FlashOff, "Torch", tint = Color.White)
             }
             Text(
-                if (paused) "Scan paused" else "Hold the barcode inside the frame",
+                if (paused) "Scan paused" else "Centre the barcode in the frame",
                 color = Color(0xCCFFFFFF),
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
@@ -155,7 +155,7 @@ fun ScanScreen(vm: MainViewModel) {
             )
         } else {
             Text(
-                "Sent this list: ${history.count { it.state == ScanState.SENT }} · Waiting: $queued",
+                "Sent: ${history.count { it.state == ScanState.SENT }} · Waiting: $queued",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
