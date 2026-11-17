@@ -19,8 +19,8 @@ android {
         applicationId = "com.lifetrenz.qrreader"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.3.1"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -37,7 +37,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Strip unused library code and resources; this is most of the APK size.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // No debug-key fallback: an APK signed with another key cannot update installed phones.
             if (keystoreProps.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
         }

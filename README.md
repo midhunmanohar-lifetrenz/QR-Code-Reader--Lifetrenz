@@ -1,5 +1,7 @@
 # Lifetrenz QR Reader (Android)
 
+**Download:** [Lifetrenz-QR-Reader-0.3.1.apk](releases/Lifetrenz-QR-Reader-0.3.1.apk) (9.2 MB, Android 12+)
+
 Scans barcodes with the phone camera and types the value into the laptop as a Bluetooth keyboard. Nothing to install on the laptop.
 
 - Android 12+ (minSdk 31, targetSdk 35), arm64 phones
@@ -14,7 +16,7 @@ Needs Java 17 and the Android SDK (platform 35, build-tools 35.0.0). `local.prop
 ./gradlew assembleRelease
 ```
 
-APK: `app/build/outputs/apk/release/app-release.apk`. Release copies go in `dist/` (not in git).
+APK: `app/build/outputs/apk/release/app-release.apk`. Release APKs for download are kept in `releases/`.
 
 A release build stops with an error if `keystore.properties` is missing, so an APK is never signed with the wrong key.
 
@@ -45,6 +47,7 @@ Do not share them or commit them. Both are excluded by `.gitignore`.
 
 ## Versions
 
+- 0.3.1 smaller APK: code shrinking (R8) on, 49 MB down to 9.2 MB. No behaviour change.
 - 0.3.0 review fixes: centre-most barcode and per-value repeat guard, no double sends, partial-send warning,
   visibility permission, background pause handling, connect timeout, history auto-clear and clear confirmation,
   laptops-only paired list, release signing guard.
